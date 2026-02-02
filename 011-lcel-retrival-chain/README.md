@@ -33,21 +33,28 @@ Retrieval chains are the **final step** in building RAG applications - they brin
 
 A retrieval chain follows this process:
 
-1. **User Query**: User asks a question
-2. **Retrieve Documents**: Retriever searches vector database for relevant documents
-3. **Format Prompt**: Combine retrieved context with user question
-4. **Generate Answer**: LLM generates answer using the formatted prompt
-5. **Return Response**: Return the LLM's answer to the user
+1. **Take Question Input**: User asks a question
+2. **Insert into Chain**: Use `RunnablePassthrough` to assign the question to "question" (RunnablePassthrough allows inputs to be inserted into chains unchanged)
+3. **Retrieve Documents**: Retrieve relevant documents from the vector store and assign to "context"
+4. **Integrate into Prompt**: Integrate both context and question into a prompt template
+5. **Generate Output**: Pass the prompt to the model to generate an output
+6. **Parse Output**: Parse the output into our favored format, such as a string
+
+> **Note:** `RunnablePassthrough` is essentially a placeholder in our chain that allows us to pass data through without modifying it.
 
 ### Example Flow:
 ```
 User Question
   ↓
-Retriever → Relevant Documents
+RunnablePassthrough → "question" (unchanged)
+  ↓
+Retriever → Relevant Documents → "context"
   ↓
 Prompt Template (context + question)
   ↓
 LLM → Answer
+  ↓
+Parse → String
 ```
 
 ## Prerequisites
@@ -220,13 +227,15 @@ response = retrieval_chain.invoke("What is machine learning?")
 ```
 Question: "What is machine learning?"
   ↓
-Retriever searches vector database
+RunnablePassthrough → "question" = "What is machine learning?" (unchanged)
   ↓
-Retrieved Documents: ["Machine learning enables...", "ML uses algorithms..."]
+Retriever searches vector database → "context" = ["Machine learning enables...", "ML uses algorithms..."]
   ↓
 Prompt Template formats: "Context: [documents]\nQuestion: What is machine learning?\nAnswer:"
   ↓
 LLM generates: "Machine learning is a subset of AI that enables computers to learn..."
+  ↓
+Parse output → String format
 ```
 
 ## Code Examples
@@ -286,7 +295,11 @@ This allows `component3` to receive both `input1` and `input2`.
 }
 ```
 
-This is useful when you want to pass the original input to a later component.
+**Key Points:**
+- **RunnablePassthrough is essentially a placeholder** in our chain that allows us to pass data through without modifying it
+- **It allows inputs to be inserted into chains unchanged**
+- This is useful when you want to pass the original input (like a question) to a later component (like a prompt template)
+- In retrieval chains, it's used to pass the user's question directly to the prompt template while the retriever processes it separately
 
 ### Retrieval Chain Pattern
 
@@ -302,6 +315,37 @@ retrieval_chain = (
     | llm  # Generate answer
 )
 ```
+
+### Step-by-Step Process
+
+Here's what happens when you invoke a retrieval chain:
+
+1. **Take Question Input**: The chain receives a question as input (e.g., "What is machine learning?")
+
+2. **Insert into Chain using RunnablePassthrough**: 
+   - The question is assigned to "question" using `RunnablePassthrough()`
+   - `RunnablePassthrough` allows inputs to be inserted into chains unchanged
+   - This preserves the original question for use in the prompt template
+
+3. **Retrieve Relevant Documents**:
+   - The retriever searches the vector store using the question
+   - Relevant documents are retrieved and assigned to "context"
+   - These documents provide the context needed to answer the question
+
+4. **Integrate into Prompt Template**:
+   - Both "context" (retrieved documents) and "question" (original input) are integrated into the prompt template
+   - The template formats them into a complete prompt for the LLM
+
+5. **Pass to Model**:
+   - The formatted prompt is passed to the LLM
+   - The LLM generates an output based on the retrieved context and question
+
+6. **Parse Output**:
+   - The output is parsed into our favored format, such as a string
+   - For OpenAI models, this is typically `response.content`
+   - For Hugging Face models, this is typically `str(response).strip()`
+
+**Note:** `RunnablePassthrough` is essentially a placeholder in our chain that allows us to pass data through without modifying it. This is crucial for keeping the original question intact while the retriever processes it separately.
 
 ## Quiz
 
